@@ -23,7 +23,11 @@ class loadingWindow(QWidget):
 
         title_label = QLabel("TRADING SIMULATOR")
         title_label.setFont(QFont("Arial", 24, QFont.Weight.Bold))
+        title_label.setFixedSize(300, 60)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         loading_label = QLabel("...LOADING...")
+        loading_label.setFixedSize(300, 40)
+        loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         loading_label.setFont(QFont("Arial", 18))
 
         #centre labels in window
@@ -616,13 +620,13 @@ class tradingStrategiesWidget(QDialog):
         super().__init__()
         self.simulator = simulator
         self.stock = stock
-        self.ticker = stock.get_ticker()
 
         self.setMinimumSize(300, 200)
         self.resize(400, 300)
         self.setWindowTitle("Select Trading Strategies")
         self.mainlayout = QVBoxLayout()
         self.mainlayout.addWidget(QLabel("Select strategies to activate and set parameters"))
+        self.form_layout = QFormLayout()
 
         #Take Profit
         self.takeProfit_checkBox = QCheckBox()
@@ -631,15 +635,13 @@ class tradingStrategiesWidget(QDialog):
         self.takeProfit_input.setSingleStep(0.1)
         self.takeProfit_input.setDecimals(2)
         self.takeProfit_input.setSuffix(" %")
-        self.takeProfit_input.setEnabled(False)
-
-        # self.takeProfit_checkBox.stateChanged.connect(lambda s: self.takeProfit_input.setEnabled(s == Qt.Checked))
+        #self.takeProfit_input.setToolTip("Sell when this % profit is achieved.")
 
         self.takeProfit_layout = QHBoxLayout()
         self.takeProfit_layout.addWidget(self.takeProfit_checkBox)
         self.takeProfit_layout.addWidget(QLabel("When"))
         self.takeProfit_layout.addWidget(self.takeProfit_input)
-        self.takeProfit_layout.addWidget(QLabel("%  profit is achieved, sell all."))
+        self.takeProfit_layout.addWidget(QLabel("%  profit is achieved, sell all shares."))
         self.takeProfit_layout.addStretch()
         self.mainlayout.addLayout(self.takeProfit_layout)
 
@@ -651,13 +653,13 @@ class tradingStrategiesWidget(QDialog):
         self.stopLoss_spinBox.setSingleStep(0.1)
         self.stopLoss_spinBox.setDecimals(2)
         self.stopLoss_spinBox.setSuffix(" %")
-        self.stopLoss_spinBox.setEnabled(False)
+        #self.stopLoss_spinBox.setToolTip("Sell when this % loss is reached.")
 
         self.stopLoss_layout = QHBoxLayout()
         self.stopLoss_layout.addWidget(self.stopLoss_checkBox)
         self.stopLoss_layout.addWidget(QLabel("When"))
         self.stopLoss_layout.addWidget(self.stopLoss_spinBox)
-        self.stopLoss_layout.addWidget(QLabel("% loss is reached, sell all."))
+        self.stopLoss_layout.addWidget(QLabel("% loss is reached, sell all shares."))
         self.stopLoss_layout.addStretch()
         self.mainlayout.addLayout(self.stopLoss_layout)
         
@@ -669,12 +671,12 @@ class tradingStrategiesWidget(QDialog):
         self.dollarCost_amount_spinBox.setSingleStep(1)
         self.dollarCost_amount_spinBox.setDecimals(2)
         self.dollarCost_amount_spinBox.setPrefix("£ ")
-        self.dollarCost_amount_spinBox.setEnabled(False)
-
+        #self.dollarCost_amount_spinBox.setToolTip("Amount of cash to invest periodically.")
+    
         self.dollarCost_frequency_spinBox = QSpinBox()
         self.dollarCost_frequency_spinBox.setRange(1, 365)
         self.dollarCost_frequency_spinBox.setSingleStep(1)
-        self.dollarCost_frequency_spinBox.setEnabled(False)
+        #self.dollarCost_frequency_spinBox.setToolTip("Number of days between each investment.")
 
         self.dollarCost_layout = QHBoxLayout()
         self.dollarCost_layout.addWidget(self.dollarCost_CheckBox)
@@ -690,37 +692,49 @@ class tradingStrategiesWidget(QDialog):
         #Buttons
         self.btn_layout = QHBoxLayout()
         self.save_btn = QPushButton("Save Strategies")
-        self.cancel_btn = QPushButton("CANCEL")
+        self.cancel_btn = QPushButton("Cancel")
         self.btn_layout.addStretch()
         self.btn_layout.addWidget(self.save_btn)
         self.btn_layout.addWidget(self.cancel_btn)
         self.mainlayout.addLayout(self.btn_layout)
-
-        # self.save_btn.clicked.connect()
-        # self.cancel_btn.clicked.connect()
+        self.save_btn.clicked.connect(self.save_strategies)
+        self.cancel_btn.clicked.connect(self.reject) #close the dialog
 
         self.setLayout(self.mainlayout)
 
 
-
-
-
-
-
-
-
-
-
-
-        self.checkboxes = {}
-        self.param_widgets = {}
-
-        # Get strategies for this stock
-        stock_strats = self.simulator.strategies.stock_strategies.get(self.ticker, {})
-        
-
     def save_strategies(self):
-        ...
+        """Save and activate the selected strategies and their parameters if the checkbox is checked
+        otherwise, deactive the strategies."""
+        self.strategies = {} #dictionary to hold the strategies and their parameters
+
+        if self.takeProfit_checkBox.isChecked():
+            threshold = self.takeProfit_input.value()
+            self.strategies["take_profit"] = threshold #set the threshold for take profit strategy
+            self.simulator.strategies.activate(self.stock,"take_profit") #activate the strategy if checkbox is checked
+            print(f"Take Profit strategy activated with threshold: {threshold}%")
+        else: 
+            self.simulator.strategies.deactivate(self.stock,"take_profit") #deactivate the strategy if checkbox is not checked
+
+        if self.stopLoss_checkBox.isChecked():
+            threshold = self.stopLoss_spinBox.value()
+            self.strategies["stop_loss"] = threshold
+            self.simulator.strategies.activate(self.stock,"stop_loss")
+            print(f"Stop Loss strategy activated with threshold: {threshold}%")
+        else: 
+            self.simulator.strategies.deactivate(self.stock,"stop_loss")
+
+        if self.dollarCost_CheckBox.isChecked():
+            cash = self.dollarCost_amount_spinBox.value()
+            day_interval = self.dollarCost_frequency_spinBox.value()
+            self.strategies["dollar_cost_avg"] = {"cash": cash, "day_interval": day_interval}
+            self.simulator.strategies.activate(self.stock,"dollar_cost_avg")
+            print(f"Dollar Cost Averaging strategy activated with cash: £{cash} every {day_interval} days")
+        else:
+            self.simulator.strategies.deactivate(self.stock,"dollar_cost_avg")
+
+        self.simulator.strategies.set_all_strategies(self.stock, self.strategies) #set the strategies for the stock
+        self.accept()  #close the dialog
 
 
 class displaySims(QWidget):

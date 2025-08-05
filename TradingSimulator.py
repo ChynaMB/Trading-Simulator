@@ -117,14 +117,15 @@ class TradingSimulator:
         
         self.start_balance = start_balance
         self.balance = Balance(start_balance)
-        self.strategies = TradingStrategies(self.balance)
         
         self.stocks: Dict[str, Stock] = {}  # {ticker: Stock}
         self.create_stocks()
 
+        self.strategies = TradingStrategies(self.balance)
+        self.initialise_strategies()
+
         self.current_simulation_id = None
       
-
         self.current_timeframe_in_days = 0
         self.days_left_in_simulation = 0
         self.prev_random_numbers = [] 
@@ -144,6 +145,10 @@ class TradingSimulator:
             )
             print("Stock created:" + self.stocks[ticker].get_name())
 
+    def initialise_strategies(self):
+        """Initialise all strategies for each stock"""  
+        for stock in self.stocks.values():  
+            self.strategies.initialise_strategies(stock)
 
     #1.5 getter methods
     def get_tickers(self) -> List[str]:
@@ -279,9 +284,10 @@ class TradingSimulator:
             self.start_date = startDate + random_days + timedelta(days=1)  # Add one day to avoid starting on the first day of data
 
     def reset_all(self, date) -> None:
-        """Reset stocks and balance to initial state"""
+        """Reset stocks and balance and strategies to initial state"""
         for stock in self.stocks.values():
             stock.initialise_stock(date)
+            self.strategies.initialise_strategies(stock)
         self.balance.resetBalance()
     
 
@@ -309,9 +315,13 @@ class TradingSimulator:
         list_of_stocks = self.stocks.values()
         self.balance.set_balance_from_sim(sim_id, list_of_stocks)
         
-        #loop through stocks and set their values based on the simulation ID
+        #loop through stocks and set their values based on the simulation ID 
         for Stock in self.stocks.values():
             Stock.set_stock_from_simulation(sim_id)
+            #set strategies - update in fututre to load strategies from database
+            
+
+        
     
         print(f"previous simultion: {sim_id} has been loaded in")
 
@@ -381,7 +391,7 @@ class TradingSimulator:
         return start_exists and end_exists
 
 
-    # 3 simulation setup (purchase stocks and set strategies)
+    # 3.1 simulation setup (purchase stocks and set strategies)
     def trade_each_stock(self) -> None:
         #purchase stocks or set trading strategies for each stock before simulation begins
         for ticker in self.get_tickers():
@@ -437,7 +447,7 @@ class TradingSimulator:
             return sell
         else:
             return False
-        
+
 
     # 4 simulation Execution
     def run_simulation(self):
@@ -483,7 +493,7 @@ class TradingSimulator:
         for date in dates:  # each loop = daily cycle
             for stock in self.stocks.values():
                 stock.dailyStockUpdate(date)
-                self.strategies.apply(stock, dates.index(date))
+                self.strategies.apply_strategies(stock, dates.index(date))
                 self.balance.daily_balance_update(self.current_simulation_id, list_of_stocks) #type: ignore
                 self.record_transaction(stock, date)
         if not self.validDates:
