@@ -1,3 +1,4 @@
+import sqlite3
 
 from Stock import Stock
 from Balance import Balance
@@ -15,6 +16,8 @@ class TradingStrategies:
         self.stock_stop_loss = {}    # {ticker: {'threshold': float, 'active': bool}}
         self.stock_dollar_cost_avg = {}  # {ticker: {'cash': float, 'day_interval': int, 'active': bool}}
 
+    
+    #setter methods - initialise strategies to innactve, activate/deactivate methods, setting strategies from the gui
     def initialise_strategies(self, Stock):
         """Set strategies so that they are all neutral and innactive"""
         ticker = Stock.ticker
@@ -63,6 +66,8 @@ class TradingStrategies:
             self.stock_dollar_cost_avg[ticker]['cash'] = configs["dollar_cost_avg"]["cash"]
             self.stock_dollar_cost_avg[ticker]['day_interval'] = configs["dollar_cost_avg"]["day_interval"]
 
+
+    #getter methods
     def get_all_strategies(self, stock):
         """Get all strategies for a specific stock."""
         ticker = stock.get_ticker()
@@ -81,6 +86,8 @@ class TradingStrategies:
             "dollar_cost_avg": self.stock_dollar_cost_avg[ticker]['active']
         }
 
+
+    #functional methods - apply the strategies
     def apply_strategies(self, stock, day_index: int):
         """Apply all active strategies to a stocks."""
         ticker = stock.get_ticker()
@@ -122,7 +129,6 @@ class TradingStrategies:
         print(f"Profit for {stock.get_ticker()} does not exceed threshold. No action taken.")
         return False
             
-
     def stop_loss(self, stock, threshold:float)-> bool:
         """Stop loss strategy: sell if investment loss drops below threshold."""
         invested_cash = stock.get_cash_invested() - stock.get_cash_withdrawn()
@@ -135,7 +141,6 @@ class TradingStrategies:
         print(f"Loss for {stock.get_ticker()} does not exceed threshold. No action taken.")
         return False
         
-
     def dollar_cost_avg(self, stock, cash, day_interval, day_index: int)-> bool:
         """Invest a specified amount of money (cash) into stocks every set amount of days(day_interval)"""
         stock_price = stock.get_current_stock_value()
@@ -143,3 +148,93 @@ class TradingStrategies:
         if isinstance(day_index, int) and day_index % day_interval == 0:
             return self.balance.purchase(stock, shares)
         return False
+    
+    #database methods - store strategies in database and also fetch them
+    def create_strategies_table(self) -> None:
+        """Create a table for storing trading strategies."""
+        conn = sqlite3.connect("data.db")
+        cursor = conn.cursor()
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS trading_strategies(
+                simulation_id TEXT,
+                end_date TEXT,
+                ticker TEXT,
+                strategy_name TEXT,
+                threshold REAL,
+                cash REAL,
+                day_interval INTEGER,
+                active BOOLEAN,
+                PRIMARY KEY (simulation_id, end_date, ticker, strategy_name)
+        """)
+    
+    def store_strategies(self, simulation_id, stock, end_date) -> None:
+        """Store strategies for a specific stock in the database."""
+        conn = sqlite3.connect("data.db")
+        cursor = conn.cursor()
+        ticker = stock.get_ticker()
+        
+        for strategy_name, strategy in self.get_all_strategies(stock).items():
+            if strategy_name == "take_profit":
+                cursor.execute(f"""
+                    INSERT OR REPLACE INTO trading_strategies (simulation_id, end_date, ticker, strategy_name, threshold, active)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (simulation_id, end_date, ticker, strategy_name, strategy['threshold'], strategy['active']))
+            elif strategy_name == "stop_loss":
+                cursor.execute(f"""
+                    INSERT OR REPLACE INTO trading_strategies (simulation_id, end_date, ticker, strategy_name, threshold, active)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (simulation_id, end_date, ticker, strategy_name, strategy['threshold'], strategy['active']))
+            elif strategy_name == "dollar_cost_avg":
+                cursor.execute(f"""
+                    INSERT OR REPLACE INTO trading_strategies (simulation_id, end_date, ticker, strategy_name, cash, day_interval, active)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (simulation_id, end_date, ticker, strategy_name, strategy['cash'], strategy['day_interval'], strategy['active']))
+        
+        conn.commit()
+        conn.close()
+
+    def load_strategies(self, simulation_id: str) -> None:
+        """Load strategies from the database for a specific simulation."""
+        conn = sqlite3.connect("data.db")
+        cursor = conn.cursor()
+        
+        cursor.execute(f"""
+            SELECT * FROM trading_strategies WHERE simulation_id = ?
+        """, (simulation_id,))
+        
+        rows = cursor.fetchall()
+        for row in rows:
+            simulation_id, end_date, ticker, strategy_name, threshold, cash, day_interval, active = row
+            if strategy_name == "take_profit":
+                self.stock_take_profit[ticker] = {'threshold': threshold, 'active': active}
+            elif strategy_name == "stop_loss":
+                self.stock_stop_loss[ticker] = {'threshold': threshold, 'active': active}
+            elif strategy_name == "dollar_cost_avg":
+                self.stock_dollar_cost_avg[ticker] = {'cash': cash, 'day_interval': day_interval, 'active': active}
+        
+        conn.close()
+        print(f"Loaded strategies for simulation {simulation_id}")
+
+    def get_strategies(self, simulation_id: str) -> dict:
+        """Get all strategies for a specific simulation."""
+        conn = sqlite3.connect("data.db")
+        cursor = conn.cursor()
+        
+        cursor.execute(f"""
+            SELECT * FROM trading_strategies WHERE simulation_id = ?
+        """, (simulation_id,))
+        
+        rows = cursor.fetchall()
+        strategies = {}
+        for row in rows:
+            _, _, ticker, strategy_name, threshold, cash, day_interval, active = row
+            strategies[ticker] = {
+                "strategy_name": strategy_name,
+                "threshold": threshold,
+                "cash": cash,
+                "day_interval": day_interval,
+                "active": active
+            }
+        
+        conn.close()
+        return strategies
