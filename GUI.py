@@ -395,7 +395,7 @@ class displayStock(QWidget):
 
     def displayStrategiesFunc(self):
         """Display the trading strategies widget."""
-        self.strat_widget = TradingStrategiesWidget(self.simulator, self.Stock)
+        self.strat_widget = tradingStrategiesWidget(self.simulator, self.Stock)
         self.strat_widget.exec()
 
     def endTrade(self):
@@ -611,7 +611,7 @@ class tradeWidget(QWidget):
             """)
 
 
-class TradingStrategiesWidget(QDialog):
+class tradingStrategiesWidget(QDialog):
     def __init__(self, simulator, stock):
         super().__init__()
         self.simulator = simulator
@@ -621,79 +621,106 @@ class TradingStrategiesWidget(QDialog):
         self.setMinimumSize(300, 200)
         self.resize(400, 300)
         self.setWindowTitle("Select Trading Strategies")
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+        self.mainlayout = QVBoxLayout()
+        self.mainlayout.addWidget(QLabel("Select strategies to activate and set parameters"))
+
+        #Take Profit
+        self.takeProfit_checkBox = QCheckBox()
+        self.takeProfit_input = QDoubleSpinBox()
+        self.takeProfit_input.setRange(0.1, 1000.0)
+        self.takeProfit_input.setSingleStep(0.1)
+        self.takeProfit_input.setDecimals(2)
+        self.takeProfit_input.setSuffix(" %")
+        self.takeProfit_input.setEnabled(False)
+
+        # self.takeProfit_checkBox.stateChanged.connect(lambda s: self.takeProfit_input.setEnabled(s == Qt.Checked))
+
+        self.takeProfit_layout = QHBoxLayout()
+        self.takeProfit_layout.addWidget(self.takeProfit_checkBox)
+        self.takeProfit_layout.addWidget(QLabel("When"))
+        self.takeProfit_layout.addWidget(self.takeProfit_input)
+        self.takeProfit_layout.addWidget(QLabel("%  profit is achieved, sell all."))
+        self.takeProfit_layout.addStretch()
+        self.mainlayout.addLayout(self.takeProfit_layout)
+
+
+        #Stop Loss
+        self.stopLoss_checkBox = QCheckBox()
+        self.stopLoss_spinBox = QDoubleSpinBox()
+        self.stopLoss_spinBox.setRange(0.1, 1000.0)  # % loss range
+        self.stopLoss_spinBox.setSingleStep(0.1)
+        self.stopLoss_spinBox.setDecimals(2)
+        self.stopLoss_spinBox.setSuffix(" %")
+        self.stopLoss_spinBox.setEnabled(False)
+
+        self.stopLoss_layout = QHBoxLayout()
+        self.stopLoss_layout.addWidget(self.stopLoss_checkBox)
+        self.stopLoss_layout.addWidget(QLabel("When"))
+        self.stopLoss_layout.addWidget(self.stopLoss_spinBox)
+        self.stopLoss_layout.addWidget(QLabel("% loss is reached, sell all."))
+        self.stopLoss_layout.addStretch()
+        self.mainlayout.addLayout(self.stopLoss_layout)
+        
+
+        #Dollar Cost Averaging
+        self.dollarCost_CheckBox = QCheckBox()
+        self.dollarCost_amount_spinBox = QDoubleSpinBox()
+        self.dollarCost_amount_spinBox.setRange(1, 1000000)
+        self.dollarCost_amount_spinBox.setSingleStep(1)
+        self.dollarCost_amount_spinBox.setDecimals(2)
+        self.dollarCost_amount_spinBox.setPrefix("£ ")
+        self.dollarCost_amount_spinBox.setEnabled(False)
+
+        self.dollarCost_frequency_spinBox = QSpinBox()
+        self.dollarCost_frequency_spinBox.setRange(1, 365)
+        self.dollarCost_frequency_spinBox.setSingleStep(1)
+        self.dollarCost_frequency_spinBox.setEnabled(False)
+
+        self.dollarCost_layout = QHBoxLayout()
+        self.dollarCost_layout.addWidget(self.dollarCost_CheckBox)
+        self.dollarCost_layout.addWidget(QLabel("Invest"))
+        self.dollarCost_layout.addWidget(self.dollarCost_amount_spinBox)
+        self.dollarCost_layout.addWidget(QLabel("every"))
+        self.dollarCost_layout.addWidget(self.dollarCost_frequency_spinBox)
+        self.dollarCost_layout.addWidget(QLabel("days."))
+        self.dollarCost_layout.addStretch()
+        self.mainlayout.addLayout(self.dollarCost_layout)
+        
+
+        #Buttons
+        self.btn_layout = QHBoxLayout()
+        self.save_btn = QPushButton("Save Strategies")
+        self.cancel_btn = QPushButton("CANCEL")
+        self.btn_layout.addStretch()
+        self.btn_layout.addWidget(self.save_btn)
+        self.btn_layout.addWidget(self.cancel_btn)
+        self.mainlayout.addLayout(self.btn_layout)
+
+        # self.save_btn.clicked.connect()
+        # self.cancel_btn.clicked.connect()
+
+        self.setLayout(self.mainlayout)
+
+
+
+
+
+
+
+
+
+
+
 
         self.checkboxes = {}
         self.param_widgets = {}
 
-        layout.addWidget(QLabel("Select strategies to activate and set parameters:"))
-
-        # Get strategies for this stock, or use defaults if not set yet
+        # Get strategies for this stock
         stock_strats = self.simulator.strategies.stock_strategies.get(self.ticker, {})
-        default_strats = {
-            'take_profit': {'description': 'Take Profit', 'threshold': 0.2, 'active': False},
-            'stop_loss': {'description': 'Stop Loss', 'threshold': 0.1, 'active': False},
-            'dollar_cost_avg': {'description': 'Dollar Cost Avg', 'shares': 5, 'interval': 7, 'active': False}
-        }
-        for name, config in default_strats.items():
-            # Use stock-specific config if it exists
-            config = {**config, **stock_strats.get(name, {})}
-            row = QHBoxLayout()
-            desc = config.get('description', name)
-            cb = QCheckBox(desc)
-            cb.setChecked(config.get('active', False))
-            row.addWidget(cb)
-            self.checkboxes[name] = cb
-            params = {}
-            if 'threshold' in config:
-                spin = QDoubleSpinBox()
-                spin.setDecimals(2)
-                spin.setSingleStep(0.01)
-                spin.setRange(0.01, 1.0)
-                spin.setValue(config['threshold'])
-                spin.setSuffix(" (as fraction, e.g. 0.2 for 20%)")
-                row.addWidget(spin)
-                params['threshold'] = spin
-            if 'shares' in config:
-                spin = QSpinBox()
-                spin.setRange(1, 1000)
-                spin.setValue(config['shares'])
-                row.addWidget(QLabel("Shares:"))
-                row.addWidget(spin)
-                params['shares'] = spin
-            if 'interval' in config:
-                spin = QSpinBox()
-                spin.setRange(1, 365)
-                spin.setValue(config['interval'])
-                row.addWidget(QLabel("Interval:"))
-                row.addWidget(spin)
-                params['interval'] = spin
-
-            self.param_widgets[name] = params
-            layout.addLayout(row)
-
-        save_btn = QPushButton("Save Strategies")
-        save_btn.clicked.connect(self.save_strategies)
-        layout.addWidget(save_btn)
-
-        self.setMinimumSize(400, 200)
-        self.resize(500, 300)
+        
 
     def save_strategies(self):
-        for name, cb in self.checkboxes.items():
-            params = {}
-            for param, widget in self.param_widgets[name].items():
-                params[param] = widget.value()
-            if cb.isChecked():
-                self.simulator.strategies.activate(self.ticker, name, **params)
-            else:
-                self.simulator.strategies.deactivate(self.ticker, name)
-        QMessageBox.information(self, "Saved", "Strategies updated for this stock!")
-        self.accept()
-        # if hasattr(self.simWindow, "simWindow") and hasattr(self.simWindow, "update_balances"):
-        #     self.simWindow.update_balances()
-        #     self.simulator.strategies.save_to_db(self.simulator.get_sim_id())
+        ...
 
 
 class displaySims(QWidget):
