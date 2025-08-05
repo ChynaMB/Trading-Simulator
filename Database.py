@@ -25,8 +25,9 @@ class Database:
     def getEndDate(self):
         return self.endDate
 
-    # Connect to the SQLite database (or create it if it doesn't exist)
+    
     def createDatabase(self) -> None:
+        """ Create the SQLite database and the historicalData table if it doesn't exist. """
         # Connect to the SQLite database (or create it if it doesn't exist)
         conn = sqlite3.connect('data.db')
         cursor = conn.cursor()
@@ -48,8 +49,9 @@ class Database:
         cursor.close()    
         conn.close()
 
-    # Define the date range for fetching historical data using the earliest and latest dates across all tickers
+    
     def defineDates(self) -> None:
+        """ Define the start and end dates for fetching historical data based on the earliest and latest dates across all tickers. """
         earliestDates = []
         latestDates = []
 
@@ -67,8 +69,9 @@ class Database:
         self.startDate = startDate
         self.endDate = endDate
 
-    # download stock data and insert it into the database
+
     def downloadData(self, startDate, endDate) -> None:  
+        """ Download stock data for the specified date range and insert it into the database. """
         # Connect to the SQLite database
         conn = sqlite3.connect('data.db')
         cursor = conn.cursor()
@@ -108,8 +111,9 @@ class Database:
 
         conn.close()
 
-    # Function to check if the database is empty or if new data is available, and update accordingly
+
     def updateData(self) -> None:
+        """ Check if the database is empty or if new data is available, and update accordingly. """
         # Connect to the SQLite database
         conn = sqlite3.connect('data.db')
         cursor = conn.cursor()
@@ -132,8 +136,9 @@ class Database:
         cursor.close()    
         conn.close()
 
-    # Main function to initialize the database and update data
+
     def initialiseDatabase(self) -> None:
+        """ Initialise the database by creating the necessary tables and downloading stock data. """
         # Create the database and table if they don't exist
         self.createDatabase()
 
@@ -143,4 +148,30 @@ class Database:
         # upload data
         self.updateData()
 
-    
+    @staticmethod
+    def reset_database():
+        """ Reset the database by deleting all simulation data and historical data,
+        while keeping the schema and stock data intact. """
+        # 1. Connect to existing database
+        conn = sqlite3.connect('data.db')
+        cursor = conn.cursor()
+        
+        # 2. List all simulation tables to delete
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'sim_%'")
+        sim_tables = cursor.fetchall()
+        
+        # 3. Delete all simulation data
+        for table in sim_tables:
+            cursor.execute(f"DROP TABLE {table[0]}")
+        
+        # 4. Clear historical data while keeping structure
+        cursor.execute("DELETE FROM historicalData")
+        
+        # 5. Reinitialize with fresh data
+        db = Database()
+        db.initialiseDatabase()  # Your existing initialization
+        
+        conn.commit()
+        conn.close()
+        print("Database reset complete! Only schema and stock data remain.")
+

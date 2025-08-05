@@ -571,27 +571,9 @@ class TradingSimulator:
             next_day = self.get_loop_restart_date()
 
         return next_day 
- 
-
-    #  5 simulation termination
-    def end_simulation(self, new_simulation: bool, days: int) -> None:
-        """Clean up and optionally start new simulation"""
-        if new_simulation & days <= 0:
-            print("Simulation must be 1 day or longer")
-            return
-            #add better exception handling here
-        if new_simulation:
-            self.new_simulation()
-            self.set_timeframe(days)
-            self.trade_each_stock
-            self.sim_run
-            self.end_simulation(False,0)
-        else:
-            print("Simulation ended. Final portfolio value:", self.get_total_value())
-            #self.plot_performance()
 
 
-    # 6 plot graphs
+    # 5 plot graphs
     def get_sim_graph_data(self) -> dict:
         """
         Plot simulation graph - show progression of portfolio value.
@@ -846,9 +828,7 @@ class TradingSimulator:
         print("Simulation ID:", self.current_simulation_id)
         self.set_timeframe(1)
 
-        # # 5 simulation termination
-        # self.end_simulation(new_simulation=False, days = 0)
-        # print("phase 5 complete: Simulation ended and performance plotted.")
+        
 
         
 

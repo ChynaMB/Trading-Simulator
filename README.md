@@ -27,15 +27,12 @@ A desktop application for simulating stock trading, portfolio management, and te
     ```bash
     pip install PySide6
     pip install matplotlib
+    pip install yfinance
     ```
     *Typical requirements:*
+    - yfinance
     - PySide6
     - matplotlib
-
-3. **Prepare the database:**
-    - Ensure you have a `data.db` SQLite database with a `historicalData` table containing your stock data.
-    - The app will create simulation tables as needed.
-
 ---
 
 ## Usage
@@ -62,7 +59,6 @@ Trading-Simulator/
 ├── GUI.py                    # Main GUI application
 ├── TradingSimulator.py       # Core simulation logic
 ├── TradingStrategies.py      # Strategy logic (per-stock)
-├── TradingStrategiesWidget.py# GUI for strategy customization
 ├── Stock.py                  # Stock model
 ├── Balance.py                # Balance and portfolio logic
 ├── Database.py               # Database helper
@@ -83,7 +79,7 @@ You can activate/deactivate and configure these strategies for each stock indivi
 
 ## Notes
 
-- The application requires a valid `data.db` with historical stock data.
+- The application creates a SQL database `data.db` with historical stock data.
 - All simulation data is stored in new tables within the same database.
 - The GUI is designed for desktop use and may not be suitable for mobile devices.
 
